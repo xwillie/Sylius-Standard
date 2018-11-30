@@ -20,6 +20,7 @@ ARG APCU_VERSION=5.1.11
 RUN set -eux; \
 	apk add --no-cache --virtual .build-deps \
 		$PHPIZE_DEPS \
+		coreutils \
 		freetype-dev \
 		icu-dev \
 		libjpeg-turbo-dev \
@@ -65,6 +66,7 @@ COPY docker/php/php.ini /usr/local/etc/php/php.ini
 # https://getcomposer.org/doc/03-cli.md#composer-allow-superuser
 ENV COMPOSER_ALLOW_SUPERUSER=1
 RUN set -eux; \
+    echo "memory_limit=2G" >> /usr/local/etc/php/php-cli.ini; \
 	composer global require "hirak/prestissimo:^0.3" --prefer-dist --no-progress --no-suggest --classmap-authoritative; \
 	composer clear-cache
 ENV PATH="${PATH}:/root/.composer/vendor/bin"
@@ -72,26 +74,33 @@ ENV PATH="${PATH}:/root/.composer/vendor/bin"
 WORKDIR /srv/sylius
 
 # build for production
-ARG SYMFONY_ENV=prod
+ARG APP_ENV=prod
+ARG APP_SECRET=thisvariableissuddenlyneededhere
 
 # prevent the reinstallation of vendors at every changes in the source code
-COPY composer.json composer.lock ./
+COPY composer.json composer.lock symfony.lock ./
 RUN set -eux; \
-	composer install --prefer-dist --no-dev --no-autoloader --no-scripts --no-progress --no-suggest; \
+    composer install --prefer-dist --no-autoloader --no-scripts --no-progress --no-suggest; \
 	composer clear-cache
 
-COPY . ./
+# copy only specifically what we need
+COPY bin bin/
+COPY config config/
+COPY public public/
+COPY src src/
+COPY templates templates/
+COPY translations translations/
 
 RUN set -eux; \
-	mkdir -p var/cache var/logs; \
-	composer dump-autoload --classmap-authoritative --no-dev; \
-	composer run-script --no-dev post-install-cmd; \
+	mkdir -p var/cache var/log; \
+	composer dump-autoload --classmap-authoritative; \
+	composer run-script post-install-cmd; \
 	chmod +x bin/console; sync; \
 	bin/console sylius:install:assets; \
-	bin/console sylius:theme:assets:install
+	bin/console sylius:theme:assets:install public
 VOLUME /srv/sylius/var
 
-VOLUME /srv/sylius/web/media
+VOLUME /srv/sylius/public/media
 
 COPY docker/php/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
 RUN chmod +x /usr/local/bin/docker-entrypoint
@@ -141,5 +150,5 @@ COPY docker/nginx/conf.d/default.conf /etc/nginx/conf.d/
 
 WORKDIR /srv/sylius
 
-COPY --from=sylius_php /srv/sylius/web web/
-COPY --from=sylius_nodejs /srv/sylius/web web/
+COPY --from=sylius_php /srv/sylius/public public/
+COPY --from=sylius_nodejs /srv/sylius/public public/

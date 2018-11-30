@@ -12,11 +12,8 @@
 **/Dockerfile
 **/Thumbs.db
 .editorconfig
-.env*
 .php_cs.cache
 .travis.yml
-app/config/parameters.yml
-app/config/*.local.yml
 composer.phar
 docker-compose*.yaml
 docker-compose*.yml
@@ -25,8 +22,8 @@ etc/build/*
 node_modules/
 var/*
 vendor/
-web/assets/
-web/bundles/
-web/css/
-web/js/
-web/media/
+public/assets/
+public/bundles/
+public/css/
+public/js/
+public/media/
